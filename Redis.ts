@@ -1,8 +1,11 @@
+import { env } from '../env'
+
 const redis = require('redis');
 const { promisify } = require("util");
 
 export class Redis {
     public RedisClient: any;
+
     public SelectAsync: any;
     public HMGetAsync: any;
     public HMSetAsync: any;
@@ -21,6 +24,10 @@ export class Redis {
     public ZCardAsync: any;
     public ZScanAsync: any;
     public ZUnionstoreAsync: any;
+    public ZMscoreAsync: any
+
+    // redis 6.2.0
+    public ZDiffstoreAsync: any
 
     private static redisMap: Map<number, Redis> = new Map<number, Redis>()
 
@@ -34,7 +41,10 @@ export class Redis {
 
     private async Init() {
         //console.log('Begin RedisManager Init()');
-        this.RedisClient = redis.createClient(6379, "127.0.0.1");
+        this.RedisClient = redis.createClient(
+            env.isDevelopment ? env.Redis_local.local_port : env.Redis_dev.dev_port,
+            env.isDevelopment ? env.Redis_local.local_host : env.Redis_dev.dev_host);
+
         this.RedisClient.on("error", function (error) {
             console.error(error);
         });
@@ -57,6 +67,10 @@ export class Redis {
         this.ZCardAsync = promisify(this.RedisClient.zcard).bind(this.RedisClient);
         this.ZScanAsync = promisify(this.RedisClient.zscan).bind(this.RedisClient);
         this.ZUnionstoreAsync = promisify(this.RedisClient.zunionstore).bind(this.RedisClient);
+
+        // redis 6.2.0
+        this.ZDiffstoreAsync = promisify(this.RedisClient.zdiffstore).bind(this.RedisClient)
+        this.ZMscoreAsync = promisify(this.RedisClient.zmscore).bind(this.RedisClient)
 
         //console.log('End RedisManager Init()');
     }

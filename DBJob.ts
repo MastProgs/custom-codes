@@ -50,8 +50,11 @@ export class DBJob {
     private m_dbmsJobAdded: boolean = false
     private m_redisJobAdded: boolean = false
 
+    private m_isFinished: boolean = false
     private m_errorInterupted: boolean = false
     private m_errorIndex: number = 0
+
+    private m_resultMap = new Map<number, any>()
 
     constructor() {
         this.Init()
@@ -61,7 +64,7 @@ export class DBJob {
 
     }
 
-    public AddJob_REDIS(redisFunc: any, ...args: any) {
+    public AddJob_REDIS(redisFunc: any, ...args: any): number {
         this.m_redisJobAdded = true
 
         let job = new Task()
@@ -72,14 +75,16 @@ export class DBJob {
 
         this.m_jobList.push(job)
         this.m_jobSize += 1
+
+        return job.order
     }
 
-    public AddJob_DBMS<Entity, T extends DeepPartial<Entity>>(processingType: EDBMS_COMMIT_TYPE, targetOrEntity: EntityTarget<Entity>, entity: T, options?: SaveOptions): void
-    public AddJob_DBMS<Entity, T extends DeepPartial<Entity>>(processingType: EDBMS_COMMIT_TYPE, targetOrEntity: EntityTarget<Entity>, entities: T[], options?: SaveOptions): void
-    public AddJob_DBMS<Entity, T extends DeepPartial<Entity>>(processingType: EDBMS_COMMIT_TYPE, targetOrEntity: EntityTarget<Entity>, where: any, partialEntity?: QueryDeepPartialEntity<Entity>): void
-    public AddJob_DBMS<Entity, T extends DeepPartial<Entity>>(processingType: EDBMS_COMMIT_TYPE, targetOrEntity: EntityTarget<Entity>, where: any, columnName: string, size: number): void
+    public AddJob_DBMS<Entity, T extends DeepPartial<Entity>>(processingType: EDBMS_COMMIT_TYPE, targetOrEntity: EntityTarget<Entity>, entity: T, options?: SaveOptions): number
+    public AddJob_DBMS<Entity, T extends DeepPartial<Entity>>(processingType: EDBMS_COMMIT_TYPE, targetOrEntity: EntityTarget<Entity>, entities: T[], options?: SaveOptions): number
+    public AddJob_DBMS<Entity, T extends DeepPartial<Entity>>(processingType: EDBMS_COMMIT_TYPE, targetOrEntity: EntityTarget<Entity>, where: any, partialEntity?: QueryDeepPartialEntity<Entity>): number
+    public AddJob_DBMS<Entity, T extends DeepPartial<Entity>>(processingType: EDBMS_COMMIT_TYPE, targetOrEntity: EntityTarget<Entity>, where: any, columnName: string, size: number): number
 
-    public AddJob_DBMS<Entity, T extends DeepPartial<Entity>>(processingType: EDBMS_COMMIT_TYPE, targetOrEntity: EntityTarget<Entity>, param3: any, param4?: any, param5?: number) {
+    public AddJob_DBMS<Entity, T extends DeepPartial<Entity>>(processingType: EDBMS_COMMIT_TYPE, targetOrEntity: EntityTarget<Entity>, param3: any, param4?: any, param5?: number): number {
         this.m_dbmsJobAdded = true
 
         let job = new Task()
@@ -111,6 +116,8 @@ export class DBJob {
 
         this.m_jobList.push(job)
         this.m_jobSize += 1
+
+        return job.order
     }
 
     private async Execute_RedisJob(job: any) {
@@ -123,7 +130,89 @@ export class DBJob {
         return true
     }
 
+    public async SingleRun(): Promise<any> {
+
+        if (0 >= this.m_jobSize) {
+            logger.error(`[ DBJob ERROR ] No job listed - m_jobSize : ${this.m_jobSize}`)
+            return undefined
+        }
+
+        if (1 < this.m_jobSize) {
+            logger.error(`[ DBJob ERROR ] Too Many Job in SingleRun - m_jobSize : ${this.m_jobSize}`)
+            return undefined
+        }
+
+        if (true == this.m_dbmsJobAdded) {
+            // Included DMBS job
+            const queryRunner = getConnection().createQueryRunner()
+            await queryRunner.startTransaction()
+            try {
+                const e = this.m_jobList[0]
+                let rtn;
+                switch (e.dbType) {
+                    case EDB_TYPE.DBMS:
+                        switch (e.processingType) {
+                            case EDBMS_COMMIT_TYPE.SAVE:
+                                rtn = await queryRunner.manager.save(e.dbmsEntityTarget, e.dbmsEntities, e.dbmsOptions)
+                                await queryRunner.commitTransaction();
+                                return rtn
+                            case EDBMS_COMMIT_TYPE.UPDATE:
+                                if (undefined == e.dbmsPartialEntity) { throw new Error("[ DBJob ERROR ] undefined partial entity when update DBMS in DBJob") }
+                                rtn = await queryRunner.manager.update(e.dbmsEntityTarget, e.dbmsWhere, e.dbmsPartialEntity)
+                                await queryRunner.commitTransaction();
+                                return rtn
+                            case EDBMS_COMMIT_TYPE.DELETE:
+                                rtn = await queryRunner.manager.delete(e.dbmsEntityTarget, e.dbmsWhere)
+                                await queryRunner.commitTransaction();
+                                return rtn
+                            case EDBMS_COMMIT_TYPE.INCREASE:
+                                if (undefined == e.dbmsColName) { throw new Error("[ DBJob ERROR ] undefined dbmsColName when increase DBMS in DBJob") }
+                                if (undefined == e.dbmsSize) { throw new Error("[ DBJob ERROR ] undefined dbmsSize when increase DBMS in DBJob") }
+                                rtn = await queryRunner.manager.increment(e.dbmsEntityTarget, e.dbmsWhere, e.dbmsColName, e.dbmsSize)
+                                await queryRunner.commitTransaction();
+                                return rtn
+                            case EDBMS_COMMIT_TYPE.DECREASE:
+                                if (undefined == e.dbmsColName) { throw new Error("[ DBJob ERROR ] undefined dbmsColName when decrease DBMS in DBJob") }
+                                if (undefined == e.dbmsSize) { throw new Error("[ DBJob ERROR ] undefined dbmsSize when decrease DBMS in DBJob") }
+                                rtn = await queryRunner.manager.decrement(e.dbmsEntityTarget, e.dbmsWhere, e.dbmsColName, e.dbmsSize)
+                                await queryRunner.commitTransaction();
+                                return rtn
+                            default:
+                                // 기타 함수 정의 https://github.com/typeorm/typeorm/blob/master/docs/entity-manager-api.md 
+                                throw new Error("[ DBJob ERROR ] invalid processing type")
+                        }
+                    case EDB_TYPE.REDIS:
+                        return await this.Execute_RedisJob(e)
+                    default:
+                        throw new Error("[ DBJob ERROR ] Invalid DBType")
+                }
+            } catch (error) {
+                await queryRunner.rollbackTransaction();
+                this.m_errorInterupted = true
+                logger.error(error)
+                return undefined
+            } finally {
+                // await queryRunner.commitTransaction();
+                await queryRunner.release();
+            }
+        }
+        else {
+            const job = this.m_jobList[0]
+            return await job.redisFunc(...job.redisFuncArgs)
+        }
+    }
+
     public async Run(): Promise<boolean> {
+
+        if (0 >= this.m_jobSize) {
+            logger.error(`[ DBJob ERROR ] No job listed - m_jobSize : ${this.m_jobSize}`)
+            return false
+        }
+
+        if (10 <= this.m_jobSize) {
+            logger.error(`[ DBJob ERROR ] Job size overed 10 - m_jobSize : ${this.m_jobSize}`)
+            return false
+        }
 
         if (true == this.m_errorInterupted) {
             return false
@@ -131,7 +220,7 @@ export class DBJob {
 
         if (true == this.m_dbmsJobAdded) {
             // Included DMBS job
-            const queryRunner = await getConnection().createQueryRunner()
+            const queryRunner = getConnection().createQueryRunner()
             await queryRunner.startTransaction()
             try {
                 await Promise.all(
@@ -143,23 +232,28 @@ export class DBJob {
                                 switch (e.processingType) {
                                     case EDBMS_COMMIT_TYPE.SAVE:
                                         ret = await queryRunner.manager.save(e.dbmsEntityTarget, e.dbmsEntities, e.dbmsOptions)
+                                        this.m_resultMap.set(e.order, ret)
                                         break
                                     case EDBMS_COMMIT_TYPE.UPDATE:
                                         if (undefined == e.dbmsPartialEntity) { throw new Error("[ DBJob ERROR ] undefined partial entity when update DBMS in DBJob") }
                                         ret = await queryRunner.manager.update(e.dbmsEntityTarget, e.dbmsWhere, e.dbmsPartialEntity)
+                                        this.m_resultMap.set(e.order, ret)
                                         break
                                     case EDBMS_COMMIT_TYPE.DELETE:
                                         ret = await queryRunner.manager.delete(e.dbmsEntityTarget, e.dbmsWhere)
+                                        this.m_resultMap.set(e.order, ret)
                                         break
                                     case EDBMS_COMMIT_TYPE.INCREASE:
                                         if (undefined == e.dbmsColName) { throw new Error("[ DBJob ERROR ] undefined dbmsColName when increase DBMS in DBJob") }
                                         if (undefined == e.dbmsSize) { throw new Error("[ DBJob ERROR ] undefined dbmsSize when increase DBMS in DBJob") }
                                         ret = await queryRunner.manager.increment(e.dbmsEntityTarget, e.dbmsWhere, e.dbmsColName, e.dbmsSize)
+                                        this.m_resultMap.set(e.order, ret)
                                         break
                                     case EDBMS_COMMIT_TYPE.DECREASE:
                                         if (undefined == e.dbmsColName) { throw new Error("[ DBJob ERROR ] undefined dbmsColName when decrease DBMS in DBJob") }
                                         if (undefined == e.dbmsSize) { throw new Error("[ DBJob ERROR ] undefined dbmsSize when decrease DBMS in DBJob") }
                                         ret = await queryRunner.manager.decrement(e.dbmsEntityTarget, e.dbmsWhere, e.dbmsColName, e.dbmsSize)
+                                        this.m_resultMap.set(e.order, ret)
                                         break
                                     default:
                                         // 기타 함수 정의 https://github.com/typeorm/typeorm/blob/master/docs/entity-manager-api.md 
@@ -185,6 +279,7 @@ export class DBJob {
                 await queryRunner.commitTransaction();
             } catch (error) {
                 await queryRunner.rollbackTransaction();
+                this.m_errorInterupted = true
                 logger.error(error)
                 return false
             } finally {
@@ -192,13 +287,20 @@ export class DBJob {
             }
         }
         else {
-            this.m_jobList.forEach(async e => {
-                if (false == await this.Execute_RedisJob(e)) {
-                    return false
-                }
-            })
+            try {
+                this.m_jobList.forEach(async e => {
+                    if (false == await this.Execute_RedisJob(e)) {
+                        throw new Error("[ DBJob ERROR ] Redis job failed")
+                    }
+                })
+            } catch (error) {
+                this.m_errorInterupted = true
+                logger.error(error)
+                return false
+            }
         }
 
+        this.m_isFinished = true
         return true
     }
 }
