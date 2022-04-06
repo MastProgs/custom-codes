@@ -3,7 +3,7 @@
 
 # 각 파일 설명
 
-## [DBJob.ts](https://github.com/MastProgs/custom-codes/blob/main/DBJob.ts)
+## [**_DBJob.ts_**](https://github.com/MastProgs/custom-codes/blob/main/DBJob.ts)
 > 각 DB 쿼리 및 Redis 요청을 하나의 job 으로 잡고, 여러 다수의 job 처리들을 하나의 트랜젝션 같이 runtime 서버 상에서 코드적으로 보장하는 핸들러 클래스.
 > AddJob_DBMS 로 SQL Job 을 추가하고, AddJob_REDIS 로 Redis 요청을 추가하여, Run() 을 통해 각 요청들을 한 번에 편히 처리 가능.
 ### 주의점
@@ -42,7 +42,7 @@ let dbjob = new DBJob()
 const res = await dbjob.Run()
 ```
 
-## [Pager.ts](https://github.com/MastProgs/custom-codes/blob/main/Pager.ts)
+## [**_Pager.ts_**](https://github.com/MastProgs/custom-codes/blob/main/Pager.ts)
 > 페이지네이션 기법을 조금 더 쉽게 활용할 수 있도록, 한 번 더 랩핑한 핸들러 클래스.
 > 필요한 쿼리를 넣으면, hash pointer index 와 그에 대응대는 필요한 value 들을 반환 받을 수 있음.
 
@@ -71,5 +71,5 @@ public async GetNextMyNFTList(walletAddress: WALLET_ADDR[], afterCursor: string)
 }
 ```
 
-## [Redis.ts](https://github.com/MastProgs/custom-codes/blob/main/Redis.ts)
+## [**_Redis.ts_**](https://github.com/MastProgs/custom-codes/blob/main/Redis.ts)
 > Redis 를 따로 클러스터링을 사용하지 않고, 각 redis index number DB 형태로 접근하여 사용하는 경우, 편하게 index 번호만 입력하여 redis 로 요청을 날릴 수 있는 핸들러 클래스.
