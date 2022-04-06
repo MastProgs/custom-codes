@@ -73,3 +73,6 @@ public async GetNextMyNFTList(walletAddress: WALLET_ADDR[], afterCursor: string)
 
 ## [**_Redis.ts_**](https://github.com/MastProgs/custom-codes/blob/main/Redis.ts)
 > Redis 를 따로 클러스터링을 사용하지 않고, 각 redis index number DB 형태로 접근하여 사용하는 경우, 편하게 index 번호만 입력하여 redis 로 요청을 날릴 수 있는 핸들러 클래스.
+
+### 주의점
+1. redis 모듈이 필요하다.
