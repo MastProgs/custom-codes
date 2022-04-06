@@ -4,7 +4,7 @@
 # 각 파일 설명
 
 ## DBJob.ts
-> 각 DB 쿼리 및 Redis 요청을 하나의 job 으로 잡고, 여러 다수의 job 처리들을 하나의 트랜젝션 같이 runtime 서버 상에서 코드적으로 보장하는 handler class.
+> 각 DB 쿼리 및 Redis 요청을 하나의 job 으로 잡고, 여러 다수의 job 처리들을 하나의 트랜젝션 같이 runtime 서버 상에서 코드적으로 보장하는 핸들러 클래스.
 > AddJob_DBMS 로 SQL Job 을 추가하고, AddJob_REDIS 로 Redis 요청을 추가하여, Run() 을 통해 각 요청들을 한 번에 편히 처리 가능.
 ### 주의점
 1. typeORM 이 필요하다
@@ -48,6 +48,7 @@ const res = await dbjob.Run()
 
 ### 주의점
 1. typeORM 이 필요하다.
+2. pagination 이 필요하다.
 
 ### 사용예시
 ```typescript
