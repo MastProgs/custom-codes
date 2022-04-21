@@ -471,7 +471,7 @@ func DB_Make_UPSERT_Query[DB_Table interface{}](tbl_insert DB_Table) (string, er
 	return queryStr, nil
 }
 
-func DB_Make_INCR_Query(tbl_columns interface{}, tbl_where interface{}, size int, raw_condition ...string) (string, error) {
+func DB_Make_INCR_Query(tbl_columns interface{}, tbl_where interface{}, size int64, raw_condition ...string) (string, error) {
 
 	from_table := reflect.TypeOf(tbl_columns).Name()
 	queryStr := "UPDATE " + from_table + " SET "
@@ -485,7 +485,7 @@ func DB_Make_INCR_Query(tbl_columns interface{}, tbl_where interface{}, size int
 			reflect_t := tbl_type.Field(i).Name
 			if true == DB_IsUse(reflect_v) {
 				var operator string
-				var s int
+				var s int64
 				if 0 <= size {
 					operator = "+"
 					s = size
@@ -493,7 +493,7 @@ func DB_Make_INCR_Query(tbl_columns interface{}, tbl_where interface{}, size int
 					operator = "-"
 					s = size * -1
 				}
-				set_field_cmd = append(set_field_cmd, reflect_t+"="+reflect_t+operator+strconv.Itoa(s))
+				set_field_cmd = append(set_field_cmd, reflect_t+"="+reflect_t+operator+strconv.FormatInt(s, 10))
 			}
 		}
 
@@ -879,7 +879,7 @@ func DB_UPSERT[DB_Table interface{}](db *sql.DB, tbl_upsert DB_Table) (int64, er
 		// UPDATE tblaccount SET UserUUID=UserUUID+1000, GameDBID=GameDBID+1000 WHERE PlayerKey="hi";
 		aff, err := DB_INCR(db, tbl_target, tbl_where, 1000)
 */
-func DB_INCR[DB_Table interface{}](db *sql.DB, tbl_target DB_Table, tbl_where DB_Table, size int, raw_condition ...string) (int64, error) {
+func DB_INCR[DB_Table interface{}](db *sql.DB, tbl_target DB_Table, tbl_where DB_Table, size int64, raw_condition ...string) (int64, error) {
 
 	/*
 		Check that each table type is the same.
@@ -936,7 +936,7 @@ func DB_INCR[DB_Table interface{}](db *sql.DB, tbl_target DB_Table, tbl_where DB
 		// UPDATE tblaccount SET UserUUID=UserUUID-1000, GameDBID=GameDBID-1000 WHERE PlayerKey="hi";
 		aff, err := DB_DECR(db, tbl_target, tbl_where, 1000)
 */
-func DB_DECR[DB_Table interface{}](db *sql.DB, tbl_target DB_Table, tbl_where DB_Table, size int, raw_condition ...string) (int64, error) {
+func DB_DECR[DB_Table interface{}](db *sql.DB, tbl_target DB_Table, tbl_where DB_Table, size int64, raw_condition ...string) (int64, error) {
 	return DB_INCR(db, tbl_target, tbl_where, size*-1, raw_condition...)
 }
 
@@ -1088,6 +1088,28 @@ func DB_UPSERT_SELECT[DB_Table interface{}](db *sql.DB, tbl_upsert DB_Table, tbl
 	}
 
 	return DB_SELECT(db, tbl_select, tbl_upsert, raw_condition...)
+}
+
+func DB_INCR_SELECT[DB_Table interface{}](db *sql.DB, tbl_target DB_Table, tbl_where DB_Table, size int64, raw_condition ...string) ([]DB_Table, error) {
+
+	var retValues []DB_Table
+	_, err := DB_INCR(db, tbl_target, tbl_where, size)
+	if err != nil {
+		return retValues, err
+	}
+
+	return DB_SELECT(db, tbl_target, tbl_where, raw_condition...)
+}
+
+func DB_DECR_SELECT[DB_Table interface{}](db *sql.DB, tbl_target DB_Table, tbl_where DB_Table, size int64, raw_condition ...string) ([]DB_Table, error) {
+
+	var retValues []DB_Table
+	_, err := DB_DECR(db, tbl_target, tbl_where, size)
+	if err != nil {
+		return retValues, err
+	}
+
+	return DB_SELECT(db, tbl_target, tbl_where, raw_condition...)
 }
 
 type DBJob struct {
