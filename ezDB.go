@@ -668,6 +668,66 @@ func DB_INSERT[DB_Table interface{}](db *sql.DB, tbl_insert ...DB_Table) (int64,
 	return affect, err
 }
 
+func DB_INSERT_AutoIncrease[DB_Table interface{}](db *sql.DB, tbl_insert ...DB_Table) (int64, int64, error) {
+
+	if 1 > len(tbl_insert) {
+		logger.Error("[ SQL ERROR ] There is no data for INSERT")
+		return 0, 0, errors.New("[ SQL ERROR ] There is no data for INSERT")
+	}
+
+	/*
+		Error handling if any of the table column values to be INSERT are abnormal.
+		INSERT 할 테이블 컬럼 값이 하나라도 비정상인 경우 에러처리.
+	*/
+	tbl_name := reflect.TypeOf(tbl_insert[0]).Name()
+
+	for _, tbl_in := range tbl_insert {
+		tbl_val := reflect.ValueOf(&tbl_in).Elem()
+
+		elemTbl_name := reflect.TypeOf(tbl_in).Name()
+		if tbl_name != elemTbl_name {
+			logger.Error("[ SQL ERROR ] Not Same tables elements in INSERT ( ", tbl_name, " <> ", elemTbl_name, " )")
+			return 0, 0, errors.New(fmt.Sprint("[ SQL ERROR ] Not Same tables elements in INSERT ( ", tbl_name, " <> ", elemTbl_name, " )"))
+		}
+
+		tbl_type := reflect.TypeOf(&tbl_in).Elem()
+		for i := 0; i < tbl_val.NumField(); i++ {
+			t := tbl_type.Field(i)
+			_, isNullAllow := t.Tag.Lookup("Null")
+			if true != isNullAllow {
+				if true != db_IsUse(tbl_val.Field(i)) {
+					logger.Errorf("[ SQL ERROR ] Invalid table field value - %v", elemTbl_name)
+					return 0, 0, errors.New(fmt.Sprint("[ SQL ERROR ] Invalid table field value - ", elemTbl_name))
+				}
+			}
+		}
+	}
+
+	queryStr, err := db_Make_INSERT_Query(tbl_insert...)
+	if err != nil {
+		return 0, 0, err
+	}
+
+	res, err := db.Exec(queryStr)
+	if err != nil {
+		logger.Errorf("[ SQL ERROR ] DB Exec error - ", err)
+		return 0, 0, err
+	}
+
+	affect, err := res.RowsAffected()
+	if err != nil {
+		logger.Errorf("[ SQL ERROR ] Rows Affected error - ", err)
+		return 0, 0, err
+	}
+
+	lastInsertID, err := res.LastInsertId()
+	if err != nil {
+		logger.Errorf("[ SQL ERROR ] Rows LastInsertId error - ", err)
+	}
+
+	return lastInsertID, affect, err
+}
+
 func DB_UPDATE[DB_Table interface{}](db *sql.DB, tbl_target DB_Table, tbl_where DB_Table, raw_condition ...string) (int64, error) {
 
 	/*
