@@ -25,21 +25,10 @@ type tblaccount struct {
 }
 
 const (
-	SQL_SELECT = iota + 100
-	SQL_INSERT
-	SQL_UPDATE
-	SQL_UPSERT
-	SQL_DELETE
-	SQL_INCRESE
-	SQL_DECRESE
-	SQL_INSERT_SELECT
-	SQL_UPDATE_SELECT
-	SQL_UPSERT_SELECT
-
 	DB_UNUSE_STRING = "\t\n0"
 )
 
-func DB_IsUse(val reflect.Value) bool {
+func db_IsUse(val reflect.Value) bool {
 	v := val
 	k := v.Kind()
 
@@ -80,7 +69,7 @@ func DB_IsUse(val reflect.Value) bool {
 	return false
 }
 
-func DB_ToString(val reflect.Value) string {
+func db_ToString(val reflect.Value) string {
 	v := val
 	k := v.Kind()
 
@@ -164,7 +153,7 @@ func DB_NewTable[TableType interface{}](tbl TableType, count int) []TableType {
 	return ret
 }
 
-func DB_Make_SELECT_Query(tbl_columns interface{}, tbl_where interface{}, raw_condition ...string) (string, error) {
+func db_Make_SELECT_Query(tbl_columns interface{}, tbl_where interface{}, raw_condition ...string) (string, error) {
 
 	/*
 		Extract the columns that will be affected from the SELECT UPDATE INSERT syntax.
@@ -179,7 +168,7 @@ func DB_Make_SELECT_Query(tbl_columns interface{}, tbl_where interface{}, raw_co
 	for i := 0; i < tbl_val.NumField(); i++ {
 		t := tbl_type.Field(i)
 
-		if true == DB_IsUse(tbl_val.Field(i)) {
+		if true == db_IsUse(tbl_val.Field(i)) {
 			target_column = append(target_column, t.Name)
 		}
 	}
@@ -204,7 +193,7 @@ func DB_Make_SELECT_Query(tbl_columns interface{}, tbl_where interface{}, raw_co
 		t := tbl_where_type.Field(i)
 
 		val := tbl_where_val.Field(i)
-		if true == DB_IsUse(val) {
+		if true == db_IsUse(val) {
 			where_index = append(where_index, i)
 			where_column = append(where_column, t.Name)
 			where_val = append(where_val, val)
@@ -220,7 +209,7 @@ func DB_Make_SELECT_Query(tbl_columns interface{}, tbl_where interface{}, raw_co
 		queryWhere := ""
 		queryWhere += where_column[i]
 		queryWhere += " = "
-		queryWhere += DB_ToString(where_val[i])
+		queryWhere += db_ToString(where_val[i])
 		queryWhereElems = append(queryWhereElems, queryWhere)
 	}
 	if 0 != len(queryWhereElems) {
@@ -237,7 +226,7 @@ func DB_Make_SELECT_Query(tbl_columns interface{}, tbl_where interface{}, raw_co
 	return queryStr, nil
 }
 
-func DB_Make_INSERT_Query[DB_Table interface{}](tbl_insert ...DB_Table) (string, error) {
+func db_Make_INSERT_Query[DB_Table interface{}](tbl_insert ...DB_Table) (string, error) {
 
 	if 1 > len(tbl_insert) {
 		return "", errors.New(fmt.Sprint("[ SQL ERROR ] There is no data for INSERT"))
@@ -264,7 +253,7 @@ func DB_Make_INSERT_Query[DB_Table interface{}](tbl_insert ...DB_Table) (string,
 		for i := 0; i < field_size; i++ {
 			t := tbl_type.Field(i)
 
-			if true == DB_IsUse(tbl.Field(i)) {
+			if true == db_IsUse(tbl.Field(i)) {
 				field_names = append(field_names, t.Name)
 				valid_field_index = append(valid_field_index, i)
 			}
@@ -292,8 +281,8 @@ func DB_Make_INSERT_Query[DB_Table interface{}](tbl_insert ...DB_Table) (string,
 			for i := 0; i < field_size; i++ {
 				val := tbl.Field(i)
 
-				if true == DB_IsUse(val) {
-					elem_row_value = append(elem_row_value, DB_ToString(val))
+				if true == db_IsUse(val) {
+					elem_row_value = append(elem_row_value, db_ToString(val))
 				}
 			}
 
@@ -309,7 +298,7 @@ func DB_Make_INSERT_Query[DB_Table interface{}](tbl_insert ...DB_Table) (string,
 	return queryStr, nil
 }
 
-func DB_Make_UPDATE_Query(tbl_columns interface{}, tbl_where interface{}, raw_condition ...string) (string, error) {
+func db_Make_UPDATE_Query(tbl_columns interface{}, tbl_where interface{}, raw_condition ...string) (string, error) {
 
 	from_table := reflect.TypeOf(tbl_columns).Name()
 	queryStr := "UPDATE " + from_table + " SET "
@@ -321,8 +310,8 @@ func DB_Make_UPDATE_Query(tbl_columns interface{}, tbl_where interface{}, raw_co
 		for i := 0; i < tbl_val.NumField(); i++ {
 			reflect_v := tbl_val.Field(i)
 			reflect_t := tbl_type.Field(i).Name
-			if true == DB_IsUse(reflect_v) {
-				set_field_cmd = append(set_field_cmd, reflect_t+"="+DB_ToString(reflect_v))
+			if true == db_IsUse(reflect_v) {
+				set_field_cmd = append(set_field_cmd, reflect_t+"="+db_ToString(reflect_v))
 			}
 		}
 
@@ -337,8 +326,8 @@ func DB_Make_UPDATE_Query(tbl_columns interface{}, tbl_where interface{}, raw_co
 		for i := 0; i < tbl_val.NumField(); i++ {
 			reflect_v := tbl_val.Field(i)
 			reflect_t := tbl_type.Field(i).Name
-			if true == DB_IsUse(reflect_v) {
-				set_field_cmd = append(set_field_cmd, reflect_t+"="+DB_ToString(reflect_v))
+			if true == db_IsUse(reflect_v) {
+				set_field_cmd = append(set_field_cmd, reflect_t+"="+db_ToString(reflect_v))
 			}
 		}
 
@@ -357,7 +346,7 @@ func DB_Make_UPDATE_Query(tbl_columns interface{}, tbl_where interface{}, raw_co
 	return queryStr, nil
 }
 
-func DB_Make_DELETE_Query(tbl_where interface{}, raw_condition ...string) (string, error) {
+func db_Make_DELETE_Query(tbl_where interface{}, raw_condition ...string) (string, error) {
 	from_table := reflect.TypeOf(tbl_where).Name()
 	queryStr := "DELETE FROM " + from_table
 
@@ -369,8 +358,8 @@ func DB_Make_DELETE_Query(tbl_where interface{}, raw_condition ...string) (strin
 		for i := 0; i < tbl_val.NumField(); i++ {
 			reflect_v := tbl_val.Field(i)
 			reflect_t := tbl_type.Field(i).Name
-			if true == DB_IsUse(reflect_v) {
-				set_field_cmd = append(set_field_cmd, reflect_t+"="+DB_ToString(reflect_v))
+			if true == db_IsUse(reflect_v) {
+				set_field_cmd = append(set_field_cmd, reflect_t+"="+db_ToString(reflect_v))
 			}
 		}
 
@@ -389,7 +378,7 @@ func DB_Make_DELETE_Query(tbl_where interface{}, raw_condition ...string) (strin
 	return queryStr, nil
 }
 
-func DB_Make_UPSERT_Query[DB_Table interface{}](tbl_insert DB_Table) (string, error) {
+func db_Make_UPSERT_Query[DB_Table interface{}](tbl_insert DB_Table) (string, error) {
 
 	queryStr := "INSERT INTO "
 
@@ -414,7 +403,7 @@ func DB_Make_UPSERT_Query[DB_Table interface{}](tbl_insert DB_Table) (string, er
 		for i := 0; i < field_size; i++ {
 			t := tbl_type.Field(i)
 
-			if true == DB_IsUse(tbl.Field(i)) {
+			if true == db_IsUse(tbl.Field(i)) {
 				field_names = append(field_names, t.Name)
 				valid_field_index = append(valid_field_index, i)
 				_, thisIsPK := t.Tag.Lookup("PK")
@@ -444,8 +433,8 @@ func DB_Make_UPSERT_Query[DB_Table interface{}](tbl_insert DB_Table) (string, er
 		for i := 0; i < field_size; i++ {
 			val := tbl.Field(i)
 
-			if true == DB_IsUse(val) {
-				elem_row_value = append(elem_row_value, DB_ToString(val))
+			if true == db_IsUse(val) {
+				elem_row_value = append(elem_row_value, db_ToString(val))
 			}
 		}
 
@@ -471,7 +460,7 @@ func DB_Make_UPSERT_Query[DB_Table interface{}](tbl_insert DB_Table) (string, er
 	return queryStr, nil
 }
 
-func DB_Make_INCR_Query(tbl_columns interface{}, tbl_where interface{}, size int64, raw_condition ...string) (string, error) {
+func db_Make_INCR_Query(tbl_columns interface{}, tbl_where interface{}, size int64, raw_condition ...string) (string, error) {
 
 	from_table := reflect.TypeOf(tbl_columns).Name()
 	queryStr := "UPDATE " + from_table + " SET "
@@ -483,7 +472,7 @@ func DB_Make_INCR_Query(tbl_columns interface{}, tbl_where interface{}, size int
 		for i := 0; i < tbl_val.NumField(); i++ {
 			reflect_v := tbl_val.Field(i)
 			reflect_t := tbl_type.Field(i).Name
-			if true == DB_IsUse(reflect_v) {
+			if true == db_IsUse(reflect_v) {
 				var operator string
 				var s int64
 				if 0 <= size {
@@ -508,8 +497,8 @@ func DB_Make_INCR_Query(tbl_columns interface{}, tbl_where interface{}, size int
 		for i := 0; i < tbl_val.NumField(); i++ {
 			reflect_v := tbl_val.Field(i)
 			reflect_t := tbl_type.Field(i).Name
-			if true == DB_IsUse(reflect_v) {
-				set_field_cmd = append(set_field_cmd, reflect_t+"="+DB_ToString(reflect_v))
+			if true == db_IsUse(reflect_v) {
+				set_field_cmd = append(set_field_cmd, reflect_t+"="+db_ToString(reflect_v))
 			}
 		}
 
@@ -580,12 +569,12 @@ func DB_SELECT[DB_Table interface{}](db *sql.DB, tbl_target DB_Table, tbl_where 
 	var target_index []int
 	tbl_val := reflect.ValueOf(&tbl_target).Elem()
 	for i := 0; i < tbl_val.NumField(); i++ {
-		if true == DB_IsUse(tbl_val.Field(i)) {
+		if true == db_IsUse(tbl_val.Field(i)) {
 			target_index = append(target_index, i)
 		}
 	}
 
-	queryStr, err := DB_Make_SELECT_Query(tbl_target, tbl_where, raw_condition...)
+	queryStr, err := db_Make_SELECT_Query(tbl_target, tbl_where, raw_condition...)
 	if err != nil {
 		return retValues, err
 	}
@@ -652,7 +641,7 @@ func DB_INSERT[DB_Table interface{}](db *sql.DB, tbl_insert ...DB_Table) (int64,
 			t := tbl_type.Field(i)
 			_, isNullAllow := t.Tag.Lookup("Null")
 			if true != isNullAllow {
-				if true != DB_IsUse(tbl_val.Field(i)) {
+				if true != db_IsUse(tbl_val.Field(i)) {
 					logger.Errorf("[ SQL ERROR ] Invalid table field value - %v", elemTbl_name)
 					return 0, errors.New(fmt.Sprint("[ SQL ERROR ] Invalid table field value - ", elemTbl_name))
 				}
@@ -660,7 +649,7 @@ func DB_INSERT[DB_Table interface{}](db *sql.DB, tbl_insert ...DB_Table) (int64,
 		}
 	}
 
-	queryStr, err := DB_Make_INSERT_Query(tbl_insert...)
+	queryStr, err := db_Make_INSERT_Query(tbl_insert...)
 	if err != nil {
 		return 0, err
 	}
@@ -695,7 +684,7 @@ func DB_UPDATE[DB_Table interface{}](db *sql.DB, tbl_target DB_Table, tbl_where 
 		}
 	}
 
-	queryStr, err := DB_Make_UPDATE_Query(tbl_target, tbl_where, raw_condition...)
+	queryStr, err := db_Make_UPDATE_Query(tbl_target, tbl_where, raw_condition...)
 	if err != nil {
 		return 0, err
 	}
@@ -716,7 +705,7 @@ func DB_UPDATE[DB_Table interface{}](db *sql.DB, tbl_target DB_Table, tbl_where 
 
 func DB_DELETE[DB_Table interface{}](db *sql.DB, tbl_where DB_Table, raw_condition ...string) (int64, error) {
 
-	queryStr, err := DB_Make_DELETE_Query(tbl_where, raw_condition...)
+	queryStr, err := db_Make_DELETE_Query(tbl_where, raw_condition...)
 	if err != nil {
 		return 0, err
 	}
@@ -736,7 +725,7 @@ func DB_DELETE[DB_Table interface{}](db *sql.DB, tbl_where DB_Table, raw_conditi
 
 func DB_UPSERT[DB_Table interface{}](db *sql.DB, tbl_upsert DB_Table) (int64, error) {
 
-	queryStr, err := DB_Make_UPSERT_Query(tbl_upsert)
+	queryStr, err := db_Make_UPSERT_Query(tbl_upsert)
 	if err != nil {
 		return 0, err
 	}
@@ -770,7 +759,7 @@ func DB_INCR[DB_Table interface{}](db *sql.DB, tbl_target DB_Table, tbl_where DB
 		}
 	}
 
-	queryStr, err := DB_Make_INCR_Query(tbl_target, tbl_where, size, raw_condition...)
+	queryStr, err := db_Make_INCR_Query(tbl_target, tbl_where, size, raw_condition...)
 	if err != nil {
 		return 0, err
 	}
@@ -801,7 +790,7 @@ func DB_INSERT_SELECT[DB_Table interface{}](db *sql.DB, tbl_insert DB_Table, tbl
 	*/
 
 	var retValues []DB_Table
-	queryStr, err := DB_Make_INSERT_Query(tbl_insert)
+	queryStr, err := db_Make_INSERT_Query(tbl_insert)
 	if err != nil {
 		return retValues, err
 	}
@@ -818,7 +807,7 @@ func DB_INSERT_SELECT[DB_Table interface{}](db *sql.DB, tbl_insert DB_Table, tbl
 		return retValues, err
 	}
 
-	queryStr, err = DB_Make_SELECT_Query(tbl_select, tbl_insert, raw_condition...)
+	queryStr, err = db_Make_SELECT_Query(tbl_select, tbl_insert, raw_condition...)
 	if err != nil {
 		return retValues, err
 	}
@@ -830,7 +819,7 @@ func DB_INSERT_SELECT[DB_Table interface{}](db *sql.DB, tbl_insert DB_Table, tbl
 	var target_index []int
 	tbl_val := reflect.ValueOf(&tbl_select).Elem()
 	for i := 0; i < tbl_val.NumField(); i++ {
-		if true == DB_IsUse(tbl_val.Field(i)) {
+		if true == db_IsUse(tbl_val.Field(i)) {
 			target_index = append(target_index, i)
 		}
 	}
@@ -947,7 +936,7 @@ func (dbjob *DBJob) ADD_INSERT(tbl_insert ...interface{}) error {
 			}
 		}
 
-		str, err := DB_Make_INSERT_Query(tbl_insert...)
+		str, err := db_Make_INSERT_Query(tbl_insert...)
 		if err != nil {
 			break
 		}
@@ -964,7 +953,7 @@ func (dbjob *DBJob) ADD_UPDATE(tbl_target interface{}, tbl_where interface{}, ra
 	var err error = nil
 
 	for {
-		str, err := DB_Make_UPDATE_Query(tbl_target, tbl_where, raw_condition...)
+		str, err := db_Make_UPDATE_Query(tbl_target, tbl_where, raw_condition...)
 		if err != nil {
 			break
 		}
@@ -981,7 +970,7 @@ func (dbjob *DBJob) ADD_UPSERT(tbl_upsert interface{}) error {
 	var err error = nil
 
 	for {
-		str, err := DB_Make_UPSERT_Query(tbl_upsert)
+		str, err := db_Make_UPSERT_Query(tbl_upsert)
 		if err != nil {
 			break
 		}
@@ -998,7 +987,7 @@ func (dbjob *DBJob) ADD_DELETE(tbl_where interface{}, raw_condition ...string) e
 	var err error = nil
 
 	for {
-		str, err := DB_Make_DELETE_Query(tbl_where, raw_condition...)
+		str, err := db_Make_DELETE_Query(tbl_where, raw_condition...)
 		if err != nil {
 			break
 		}
@@ -1015,7 +1004,7 @@ func (dbjob *DBJob) ADD_INCR(tbl_target interface{}, tbl_where interface{}, size
 	var err error = nil
 
 	for {
-		str, err := DB_Make_INCR_Query(tbl_target, tbl_where, size, raw_condition...)
+		str, err := db_Make_INCR_Query(tbl_target, tbl_where, size, raw_condition...)
 		if err != nil {
 			break
 		}
@@ -1032,7 +1021,7 @@ func (dbjob *DBJob) ADD_DECR(tbl_target interface{}, tbl_where interface{}, size
 	var err error = nil
 
 	for {
-		str, err := DB_Make_INCR_Query(tbl_target, tbl_where, -1*size, raw_condition...)
+		str, err := db_Make_INCR_Query(tbl_target, tbl_where, -1*size, raw_condition...)
 		if err != nil {
 			break
 		}
