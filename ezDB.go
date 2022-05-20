@@ -21,7 +21,7 @@ type tblaccount struct {
 	CreateTime  time.Time
 	GameDBID    int
 	SnsID       string
-	PlatformIdx int
+	PlatformIdx int `Null:"true"`
 }
 
 const (
@@ -232,7 +232,7 @@ func DB_Make_SELECT_Query(tbl_columns interface{}, tbl_where interface{}, raw_co
 	}
 
 	queryStr := "SELECT " + strings.Join(target_column, ", ") + " FROM " + from_table + where_str + ";"
-	fmt.Println(queryStr)
+	logger.Errorf(queryStr)
 
 	return queryStr, nil
 }
@@ -303,7 +303,7 @@ func DB_Make_INSERT_Query[DB_Table interface{}](tbl_insert ...DB_Table) (string,
 
 		// queryStr's final query form => INSERT INTO tbl (col1, col2, ...) VALUES (val1, val2, ...), ... ;
 		queryStr += (strings.Join(tbl_elem_array, ", ") + ";")
-		fmt.Println(queryStr)
+		logger.Errorf(queryStr)
 	}
 
 	return queryStr, nil
@@ -353,7 +353,7 @@ func DB_Make_UPDATE_Query(tbl_columns interface{}, tbl_where interface{}, raw_co
 		queryStr += (where_str + ";")
 	}
 
-	fmt.Println(queryStr)
+	logger.Errorf(queryStr)
 	return queryStr, nil
 }
 
@@ -385,7 +385,7 @@ func DB_Make_DELETE_Query(tbl_where interface{}, raw_condition ...string) (strin
 		queryStr += (where_str + ";")
 	}
 
-	fmt.Println(queryStr)
+	logger.Errorf(queryStr)
 	return queryStr, nil
 }
 
@@ -465,7 +465,7 @@ func DB_Make_UPSERT_Query[DB_Table interface{}](tbl_insert DB_Table) (string, er
 		}
 
 		queryStr += (strings.Join(name_val_set_query_elems, ", ") + "; ")
-		fmt.Println(queryStr)
+		logger.Errorf(queryStr)
 	}
 
 	return queryStr, nil
@@ -524,7 +524,7 @@ func DB_Make_INCR_Query(tbl_columns interface{}, tbl_where interface{}, size int
 		queryStr += (where_str + ";")
 	}
 
-	fmt.Println(queryStr)
+	logger.Errorf(queryStr)
 	return queryStr, nil
 }
 
@@ -532,18 +532,16 @@ func DB_Make_INCR_Query(tbl_columns interface{}, tbl_where interface{}, size int
 	< How To Use >
 	ex)
 		type tblaccount struct {
-			PlayerKey   string `PK:"true"`
+			PlayerKey   string
 			UserUUID    int64
 			ConnectIP   string
 			ConnectTime time.Time
 			CreateTime  time.Time
 			GameDBID    int
-			SnsID       string
-			PlatformIdx int
 		}
 
 		var tbl_select, tbl_where tblaccount
-		DB_InitTable(&tbl_select, &tbl_where)	<- Init member Values
+		DB_InitTable(&tbl_select, &tbl_where)
 
 		tbl_select.PlayerKey = "Yea"			<- It doesn't matter what value you set
 		tbl_select.GameDBID = 9999				<- It doesn't matter what value you set
@@ -558,6 +556,7 @@ func DB_Make_INCR_Query(tbl_columns interface{}, tbl_where interface{}, size int
 */
 func DB_SELECT[DB_Table interface{}](db *sql.DB, tbl_target DB_Table, tbl_where DB_Table, raw_condition ...string) ([]DB_Table, error) {
 
+	logger := InitLogger()
 	var retValues []DB_Table
 
 	/*
@@ -569,6 +568,7 @@ func DB_SELECT[DB_Table interface{}](db *sql.DB, tbl_target DB_Table, tbl_where 
 		tb_where_t := reflect.TypeOf(&tbl_where)
 
 		if tb_col_t.Name() != tb_where_t.Name() {
+			logger.Error(fmt.Sprint("[ SQL ERROR ] SQL Table Not Same -", tb_col_t.Elem().Name(), ":", tb_where_t.Elem().Name()))
 			return retValues, errors.New(fmt.Sprint("[ SQL ERROR ] SQL Table Not Same -", tb_col_t.Elem().Name(), ":", tb_where_t.Elem().Name()))
 		}
 	}
@@ -591,6 +591,11 @@ func DB_SELECT[DB_Table interface{}](db *sql.DB, tbl_target DB_Table, tbl_where 
 	}
 
 	rows, err := db.Query(queryStr)
+	if err != nil {
+		logger.Errorf("[ SQL ERROR ] DB Query error - %v", err)
+		return retValues, err
+	}
+
 	for rows.Next() {
 
 		/*
@@ -610,6 +615,7 @@ func DB_SELECT[DB_Table interface{}](db *sql.DB, tbl_target DB_Table, tbl_where 
 		*/
 		err = rows.Scan(target_ptr_list...)
 		if err != nil {
+			logger.Error(err)
 			return retValues, err
 		}
 
@@ -619,74 +625,35 @@ func DB_SELECT[DB_Table interface{}](db *sql.DB, tbl_target DB_Table, tbl_where 
 	return retValues, nil
 }
 
-/*
-	< How To Use >
-	ex)
-		type tblaccount struct {
-			PlayerKey   string `PK:"true"`
-			UserUUID    int64
-			ConnectIP   string
-			ConnectTime time.Time
-			CreateTime  time.Time
-			GameDBID    int
-			SnsID       string
-			PlatformIdx int
-		}
-
-		var tbl_in1, tbl_in2 tblaccount
-		DB_InitTable(&tbl_in1, &tbl_in2)
-
-		tbl_in1.PlayerKey = "hello1"
-		tbl_in1.UserUUID = 20
-		tbl_in1.ConnectIP = "127.0.0.1"
-		tbl_in1.ConnectTime = time.Now().UTC()
-		tbl_in1.CreateTime = time.Now().UTC()
-		tbl_in1.GameDBID = 21
-		tbl_in1.SnsID = "helloSNSid"
-		tbl_in1.PlatformIdx = 2
-
-		tbl_in2.PlayerKey = "hello2"
-		tbl_in2.UserUUID = 30
-		tbl_in2.ConnectIP = "127.0.0.1"
-		tbl_in2.ConnectTime = time.Now().UTC()
-		tbl_in2.CreateTime = time.Now().UTC()
-		tbl_in2.GameDBID = 31
-		tbl_in1.SnsID = "helloSNSid"
-		tbl_in1.PlatformIdx = 2
-
-		// INSERT INTO tblaccount (PlayerKey, UserUUID, ConnectIP, ConnectTime, CreateTime, GameDBID, SnsID, PlatformIdx)
-		// VALUES
-		// ("hello1", 20, "127.0.0.1", "2022-04-14 02:16:00", "2022-04-14 02:16:00", 21, "helloSNSid", 2),
-		// ("hello2", 30, "127.0.0.1", "2022-04-14 02:16:00", "2022-04-14 02:16:00", 31, "helloSNSid", 2);
-		aff, err := DB_INSERT(db, tbl_in1, tbl_in2)		<- Multiple tables can be treated as a single query.
-*/
 func DB_INSERT[DB_Table interface{}](db *sql.DB, tbl_insert ...DB_Table) (int64, error) {
 
 	if 1 > len(tbl_insert) {
-		return 0, errors.New(fmt.Sprint("[ SQL ERROR ] There is no data for INSERT"))
+		logger.Error("[ SQL ERROR ] There is no data for INSERT")
+		return 0, errors.New("[ SQL ERROR ] There is no data for INSERT")
 	}
 
 	/*
 		Error handling if any of the table column values to be INSERT are abnormal.
 		INSERT 할 테이블 컬럼 값이 하나라도 비정상인 경우 에러처리.
 	*/
-	{
-		/*
-			If a code error occurs at the time of INSERT due to the auto-increase column, this part can be commented.
-			자동 증가 컬럼 때문에 INSERT 하는 시점에 코드 에러가 발생한다면, 이 부분을 주석처리하면 된다.
-		*/
-		tbl_name := reflect.TypeOf(tbl_insert[0]).Name()
+	tbl_name := reflect.TypeOf(tbl_insert[0]).Name()
 
-		for _, tbl_in := range tbl_insert {
-			tbl_val := reflect.ValueOf(&tbl_in).Elem()
+	for _, tbl_in := range tbl_insert {
+		tbl_val := reflect.ValueOf(&tbl_in).Elem()
 
-			elemTbl_name := reflect.TypeOf(tbl_in).Name()
-			if tbl_name != elemTbl_name {
-				return 0, errors.New(fmt.Sprint("[ SQL ERROR ] Not Same tables elements in INSERT ( ", tbl_name, " <> ", elemTbl_name, " )"))
-			}
+		elemTbl_name := reflect.TypeOf(tbl_in).Name()
+		if tbl_name != elemTbl_name {
+			logger.Error("[ SQL ERROR ] Not Same tables elements in INSERT ( ", tbl_name, " <> ", elemTbl_name, " )")
+			return 0, errors.New(fmt.Sprint("[ SQL ERROR ] Not Same tables elements in INSERT ( ", tbl_name, " <> ", elemTbl_name, " )"))
+		}
 
-			for i := 0; i < tbl_val.NumField(); i++ {
+		tbl_type := reflect.TypeOf(&tbl_in).Elem()
+		for i := 0; i < tbl_val.NumField(); i++ {
+			t := tbl_type.Field(i)
+			_, isNullAllow := t.Tag.Lookup("Null")
+			if true != isNullAllow {
 				if true != DB_IsUse(tbl_val.Field(i)) {
+					logger.Errorf("[ SQL ERROR ] Invalid table field value - %v", elemTbl_name)
 					return 0, errors.New(fmt.Sprint("[ SQL ERROR ] Invalid table field value - ", elemTbl_name))
 				}
 			}
@@ -700,38 +667,18 @@ func DB_INSERT[DB_Table interface{}](db *sql.DB, tbl_insert ...DB_Table) (int64,
 
 	res, err := db.Exec(queryStr)
 	if err != nil {
+		logger.Errorf("[ SQL ERROR ] DB Exec error - ", err)
 		return 0, err
 	}
 
 	affect, err := res.RowsAffected()
 	if err != nil {
-		fmt.Println("[ SQL ERROR ] Rows Affected error - ", err)
+		logger.Errorf("[ SQL ERROR ] Rows Affected error - ", err)
 	}
 
 	return affect, err
 }
 
-/*
-	< How To Use >
-	ex)
-		type tblaccount struct {
-			PlayerKey   string `PK:"true"`
-			UserUUID    int64
-			ConnectIP   string
-			ConnectTime time.Time
-			CreateTime  time.Time
-			GameDBID    int
-			SnsID       string
-			PlatformIdx int
-		}
-
-		tbl_arr := DB_NewTable(tblaccount{}, 2)				<- Multiple initialization tables can be created and received in an array type.
-		tbl_arr[0].UserUUID = 100							<- Enter the value you want to UPDATE.
-		tbl_arr[1].PlayerKey = "hello1"						<- Enter a value in WHERE to be a conditional reference.
-
-		// UPDATE tblaccount SET UserUUID=100 WHERE PlayerKey="hello1";
-		aff, err := DB_UPDATE(db, tbl_arr[0], tbl_arr[1])	<- Enter DB connection objects, tables to update, and where table in order.
-*/
 func DB_UPDATE[DB_Table interface{}](db *sql.DB, tbl_target DB_Table, tbl_where DB_Table, raw_condition ...string) (int64, error) {
 
 	/*
@@ -743,6 +690,7 @@ func DB_UPDATE[DB_Table interface{}](db *sql.DB, tbl_target DB_Table, tbl_where 
 		tb_where_t := reflect.TypeOf(&tbl_where)
 
 		if tb_col_t.Name() != tb_where_t.Name() {
+			logger.Errorf("[ SQL ERROR ] SQL Table Not Same -", tb_col_t.Elem().Name(), ":", tb_where_t.Elem().Name())
 			return 0, errors.New(fmt.Sprint("[ SQL ERROR ] SQL Table Not Same -", tb_col_t.Elem().Name(), ":", tb_where_t.Elem().Name()))
 		}
 	}
@@ -754,37 +702,18 @@ func DB_UPDATE[DB_Table interface{}](db *sql.DB, tbl_target DB_Table, tbl_where 
 
 	res, err := db.Exec(queryStr)
 	if err != nil {
+		logger.Errorf("[ SQL ERROR ] DB Exec error - %v", err)
 		return 0, err
 	}
 
 	affect, err := res.RowsAffected()
 	if err != nil {
-		fmt.Println("[ SQL ERROR ] Rows Affected error - ", err)
+		logger.Errorf("[ SQL ERROR ] Rows Affected error - %v", err)
 	}
 
 	return affect, err
 }
 
-/*
-	< How To Use >
-	ex)
-		type tblaccount struct {
-			PlayerKey   string `PK:"true"`
-			UserUUID    int64
-			ConnectIP   string
-			ConnectTime time.Time
-			CreateTime  time.Time
-			GameDBID    int
-			SnsID       string
-			PlatformIdx int
-		}
-
-		tbl_del := DB_NewTable(tblaccount{}, 1)[0]
-		tbl_del.PlayerKey = "hello2"
-
-		// DELETE tblaccount WHERE PlayerKey="hello2"
-		aff, err := DB_DELETE(db, tbl_del)
-*/
 func DB_DELETE[DB_Table interface{}](db *sql.DB, tbl_where DB_Table, raw_condition ...string) (int64, error) {
 
 	queryStr, err := DB_Make_DELETE_Query(tbl_where, raw_condition...)
@@ -799,42 +728,12 @@ func DB_DELETE[DB_Table interface{}](db *sql.DB, tbl_where DB_Table, raw_conditi
 
 	affect, err := res.RowsAffected()
 	if err != nil {
-		fmt.Println("[ SQL ERROR ] Rows Affected error - ", err)
+		logger.Errorf("[ SQL ERROR ] Rows Affected error - %v", err)
 	}
 
 	return affect, err
 }
 
-/*
-	< How To Use >
-	ex)
-		type tblaccount struct {
-			PlayerKey   string `PK:"true"`		<- For UPSERT commands, PK tag values must be entered.
-			UserUUID    int64
-			ConnectIP   string
-			ConnectTime time.Time
-			CreateTime  time.Time
-			GameDBID    int
-			SnsID       string
-			PlatformIdx int
-		}
-
-		var tbl_upsert tblaccount
-		tbl_upsert.PlayerKey = "hi"
-		tbl_upsert.UserUUID = 28
-		tbl_upsert.ConnectIP = "127.0.0.1"
-		tbl_upsert.ConnectTime = time.Now().UTC()
-		tbl_upsert.CreateTime = time.Now().UTC()
-		tbl_upsert.GameDBID = 19
-		tbl_upsert.SnsID = "hihi"
-		tbl_upsert.PlatformIdx = 97
-
-		// INSERT INTO tblaccount (PlayerKey, UserUUID, ConnectIP, ConnectTime, CreateTime, GameDBID, SnsID, PlatformIdx)
-		// VALUES ("hi", 28, "127.0.0.1", "2022-04-14 02:16:00", "2022-04-14 02:16:00", 19, "hihi", 97)
-		// ON DUPLICATE KEY
-		// UPDATE UserUUID=28, ConnectIP="127.0.0.1", ConnectTime="2022-04-14 02:16:00", CreateTime="2022-04-14 02:16:00", GameDBID=97, SnsID="hihi", PlatformIdx=97;
-		aff, err := DB_UPSERT(db, tbl_upsert)	<- At the time of writing the UPSERT query command, check the PK tag and write the UPDATE syntax except for the corresponding column.
-*/
 func DB_UPSERT[DB_Table interface{}](db *sql.DB, tbl_upsert DB_Table) (int64, error) {
 
 	queryStr, err := DB_Make_UPSERT_Query(tbl_upsert)
@@ -849,36 +748,12 @@ func DB_UPSERT[DB_Table interface{}](db *sql.DB, tbl_upsert DB_Table) (int64, er
 
 	affect, err := res.RowsAffected()
 	if err != nil {
-		fmt.Println("[ SQL ERROR ] Rows Affected error - ", err)
+		logger.Errorf("[ SQL ERROR ] Rows Affected error - %v", err)
 	}
 
 	return affect, err
 }
 
-/*
-	< How To Use >
-	ex)
-		type tblaccount struct {
-			PlayerKey   string `PK:"true"`
-			UserUUID    int64
-			ConnectIP   string
-			ConnectTime time.Time
-			CreateTime  time.Time
-			GameDBID    int
-			SnsID       string
-			PlatformIdx int
-		}
-
-		var tbl_target, tbl_where tblaccount
-		DB_InitTable(&tbl_target, &tbl_where)
-		tbl_target.UserUUID = 0			<- It doesn't matter what value you set
-		tbl_target.GameDBID = 0			<- It doesn't matter what value you set
-
-		tbl_where.PlayerKey = "hi"		<- Setting value is important in setting query conditions
-
-		// UPDATE tblaccount SET UserUUID=UserUUID+1000, GameDBID=GameDBID+1000 WHERE PlayerKey="hi";
-		aff, err := DB_INCR(db, tbl_target, tbl_where, 1000)
-*/
 func DB_INCR[DB_Table interface{}](db *sql.DB, tbl_target DB_Table, tbl_where DB_Table, size int64, raw_condition ...string) (int64, error) {
 
 	/*
@@ -890,6 +765,7 @@ func DB_INCR[DB_Table interface{}](db *sql.DB, tbl_target DB_Table, tbl_where DB
 		tb_where_t := reflect.TypeOf(&tbl_where)
 
 		if tb_col_t.Name() != tb_where_t.Name() {
+			logger.Errorf("[ SQL ERROR ] SQL Table Not Same -", tb_col_t.Elem().Name(), ":", tb_where_t.Elem().Name())
 			return 0, errors.New(fmt.Sprint("[ SQL ERROR ] SQL Table Not Same -", tb_col_t.Elem().Name(), ":", tb_where_t.Elem().Name()))
 		}
 	}
@@ -901,83 +777,27 @@ func DB_INCR[DB_Table interface{}](db *sql.DB, tbl_target DB_Table, tbl_where DB
 
 	res, err := db.Exec(queryStr)
 	if err != nil {
+		logger.Errorf("[ SQL ERROR ] DB Exec error - %v", err)
 		return 0, err
 	}
 
 	affect, err := res.RowsAffected()
 	if err != nil {
-		fmt.Println("[ SQL ERROR ] Rows Affected error - ", err)
+		logger.Errorf("[ SQL ERROR ] Rows Affected error - %v", err)
 	}
 
 	return affect, err
 }
 
-/*
-	< How To Use >
-	ex)
-		type tblaccount struct {
-			PlayerKey   string `PK:"true"`
-			UserUUID    int64
-			ConnectIP   string
-			ConnectTime time.Time
-			CreateTime  time.Time
-			GameDBID    int
-			SnsID       string
-			PlatformIdx int
-		}
-
-		var tbl_target, tbl_where tblaccount
-		DB_InitTable(&tbl_target, &tbl_where)
-		tbl_target.UserUUID = 0			<- It doesn't matter what value you set
-		tbl_target.GameDBID = 0			<- It doesn't matter what value you set
-
-		tbl_where.PlayerKey = "hi"		<- Setting value is important in setting query conditions
-
-		// UPDATE tblaccount SET UserUUID=UserUUID-1000, GameDBID=GameDBID-1000 WHERE PlayerKey="hi";
-		aff, err := DB_DECR(db, tbl_target, tbl_where, 1000)
-*/
 func DB_DECR[DB_Table interface{}](db *sql.DB, tbl_target DB_Table, tbl_where DB_Table, size int64, raw_condition ...string) (int64, error) {
 	return DB_INCR(db, tbl_target, tbl_where, size*-1, raw_condition...)
 }
 
-/*
-	< How To Use >
-	ex)
-		type tblaccount struct {
-			PlayerKey   string `PK:"true"`
-			UserUUID    int64
-			ConnectIP   string
-			ConnectTime time.Time
-			CreateTime  time.Time
-			GameDBID    int
-			SnsID       string
-			PlatformIdx int
-		}
-
-		var tbl_in1, tbl_sel tblaccount
-		DB_InitTable(&tbl_in1, &tbl_sel)
-
-		tbl_in1.PlayerKey = "hello1"
-		tbl_in1.UserUUID = 20
-		tbl_in1.ConnectIP = "127.0.0.1"
-		tbl_in1.ConnectTime = time.Now().UTC()
-		tbl_in1.CreateTime = time.Now().UTC()
-		tbl_in1.GameDBID = 21
-		tbl_in1.SnsID = "wow1"
-		tbl_in1.PlatformIdx = 99
-
-		tbl_sel.PlayerKey = ""					<- It doesn't matter what value you set
-		tbl_sel.UserUUID = -210					<- It doesn't matter what value you set
-		tbl_sel.ConnectIP = "127.0.0.1"			<- It doesn't matter what value you set
-
-		// After executing the INSERT syntax, a query request is made to select only the required columns.
-		arr_list, err := DB_INSERT_SELECT(db, tbl_in1, tbl_sel)
-*/
 func DB_INSERT_SELECT[DB_Table interface{}](db *sql.DB, tbl_insert DB_Table, tbl_select DB_Table, raw_condition ...string) ([]DB_Table, error) {
 
 	/*
 		In the case of an auto-increment column, since it may be an empty column, we do not check that all columns have values.
-		DB에서 자동 증가 컬럼으로 정의되어있는 경우, INSERT 시점에 비어서 넣어야 하는 컬럼인 경우가 있으므로, 여기선 모든 컬럼에 값이 있는지 체크하지 않는다.
+		자동 증가 컬럼의 경우, 비어있는 컬럼인 경우가 있으므로, 여기선 모든 컬럼에 값이 있는지 체크하지 않는다.
 	*/
 
 	var retValues []DB_Table
@@ -988,12 +808,13 @@ func DB_INSERT_SELECT[DB_Table interface{}](db *sql.DB, tbl_insert DB_Table, tbl
 
 	res, err := db.Exec(queryStr)
 	if err != nil {
+		logger.Errorf("[ SQL ERROR ] DB Exec error - %v", err)
 		return retValues, err
 	}
 
 	_, err = res.RowsAffected()
 	if err != nil {
-		fmt.Println("[ SQL ERROR ] Rows Affected error - ", err)
+		logger.Errorf("[ SQL ERROR ] Rows Affected error - %v", err)
 		return retValues, err
 	}
 
@@ -1016,6 +837,7 @@ func DB_INSERT_SELECT[DB_Table interface{}](db *sql.DB, tbl_insert DB_Table, tbl
 
 	rows, err := db.Query(queryStr)
 	if err != nil {
+		logger.Errorf("[ SQL ERROR ] DB Query error - %v", err)
 		return retValues, err
 	}
 
@@ -1047,27 +869,6 @@ func DB_INSERT_SELECT[DB_Table interface{}](db *sql.DB, tbl_insert DB_Table, tbl
 	return retValues, nil
 }
 
-/*
-	< How To Use >
-	ex)
-		type tblaccount struct {
-			PlayerKey   string `PK:"true"`
-			UserUUID    int64
-			ConnectIP   string
-			ConnectTime time.Time
-			CreateTime  time.Time
-			GameDBID    int
-			SnsID       string
-			PlatformIdx int
-		}
-
-		tbl_arr := DB_NewTable(tblaccount{}, 2)
-		tbl_arr[0].UserUUID = 100
-		tbl_arr[1].PlayerKey = "hello1"
-
-		// Set UserUUID with PlayerKey "hello1" to 100 and select all columns with PlayerKey "hello1"
-		arr_list, err := DB_UPDATE_SELECT(db, tbl_arr[0], tbl_arr[1], tblaccount{})
-*/
 func DB_UPDATE_SELECT[DB_Table interface{}](db *sql.DB, tbl_target DB_Table, tbl_where DB_Table, tbl_select DB_Table, raw_condition ...string) ([]DB_Table, error) {
 
 	var retValues []DB_Table
@@ -1118,131 +919,143 @@ type DBJob struct {
 	errorMap   map[int]error
 }
 
-/*
-	SQL_INSERT, SQL_UPDATE, SQL_UPSERT, SQL_DELETE, SQL_INCRESE, SQL_DECRESE
+func (dbjob *DBJob) readyNextProcess(err error) {
+	dbjob.jobCounter += 1
+	if err != nil {
+		dbjob.errorMap[dbjob.jobCounter] = err
+	}
+}
 
-	Transaction is supported only for the above functions, and DBJob function is not supported for other commands.
-	위 함수들에 대해서만 Transaction 을 지원하며, 다른 명령에 대해서는 DBJob 기능을 지원하지 않음.
-*/
-func AddJob[DB_Table interface{}](dbjob *DBJob, command int, tables ...DB_Table) error {
+func (dbjob *DBJob) ADD_INSERT(tbl_insert ...interface{}) error {
 	var err error = nil
 
-	switch command {
-	case SQL_INSERT:
-
-		if 1 > len(tables) {
+	for {
+		if 1 > len(tbl_insert) {
+			logger.Error("[ DBJob Error ] AddJob - no Job added")
 			err = errors.New("[ DBJob Error ] AddJob - no Job added")
 			break
 		}
 
-		tbl_name := reflect.TypeOf(tables[0]).Name()
+		tbl_name := reflect.TypeOf(tbl_insert[0]).Name()
 
-		for _, tbl_in := range tables {
+		for _, tbl_in := range tbl_insert {
 			elemTbl_name := reflect.TypeOf(tbl_in).Name()
 			if tbl_name != elemTbl_name {
+				logger.Error("[ DBJob Error ] AddJob - Insert Job's element table name is not same")
 				err = errors.New("[ DBJob Error ] AddJob - Insert Job's element table name is not same")
 				break
 			}
 		}
 
-		str, err := DB_Make_INSERT_Query(tables...)
+		str, err := DB_Make_INSERT_Query(tbl_insert...)
 		if err != nil {
 			break
 		}
 
 		dbjob.queryList = append(dbjob.queryList, str)
-	case SQL_UPDATE:
-
-		if 2 > len(tables) {
-			err = errors.New("[ DBJob Error ] AddJob - no Job added")
-			break
-		}
-
-		str, err := DB_Make_UPDATE_Query(tables[0], tables[1])
-		if err != nil {
-			break
-		}
-
-		dbjob.queryList = append(dbjob.queryList, str)
-	case SQL_UPSERT:
-
-		if 1 > len(tables) {
-			err = errors.New("[ DBJob Error ] AddJob - no Job added")
-			break
-		}
-
-		str, err := DB_Make_UPSERT_Query(tables[0])
-		if err != nil {
-			break
-		}
-
-		dbjob.queryList = append(dbjob.queryList, str)
-	case SQL_DELETE:
-
-		if 1 > len(tables) {
-			err = errors.New("[ DBJob Error ] AddJob - no Job added")
-			break
-		}
-
-		str, err := DB_Make_DELETE_Query(tables[0])
-		if err != nil {
-			break
-		}
-
-		dbjob.queryList = append(dbjob.queryList, str)
-	case SQL_INCRESE:
-
-		if 2 > len(tables) {
-			err = errors.New("[ DBJob Error ] AddJob - no Job added")
-			break
-		}
-
-		str, err := DB_Make_INCR_Query(tables[0], tables[1], 1)
-		if err != nil {
-			break
-		}
-
-		dbjob.queryList = append(dbjob.queryList, str)
-	case SQL_DECRESE:
-
-		if 2 > len(tables) {
-			err = errors.New("[ DBJob Error ] AddJob - no Job added")
-			break
-		}
-
-		str, err := DB_Make_INCR_Query(tables[0], tables[1], -1)
-		if err != nil {
-			break
-		}
-
-		dbjob.queryList = append(dbjob.queryList, str)
-
-	default:
-		err = errors.New("[ DBJob Error ] AddJob - Invalid command")
+		break
 	}
 
-	dbjob.jobCounter += 1
-	if err != nil {
-		dbjob.errorMap[dbjob.jobCounter] = err
-	}
-
+	dbjob.readyNextProcess(err)
 	return err
 }
 
-/*
-	When the actual query is executed is when the DBJob.Run() function is called.
-	실제 쿼리가 실행되는 시점은 DBJob.Run() 함수를 호출하는 시점
-*/
+func (dbjob *DBJob) ADD_UPDATE(tbl_target interface{}, tbl_where interface{}, raw_condition ...string) error {
+	var err error = nil
+
+	for {
+		str, err := DB_Make_UPDATE_Query(tbl_target, tbl_where, raw_condition...)
+		if err != nil {
+			break
+		}
+
+		dbjob.queryList = append(dbjob.queryList, str)
+		break
+	}
+
+	dbjob.readyNextProcess(err)
+	return err
+}
+
+func (dbjob *DBJob) ADD_UPSERT(tbl_upsert interface{}) error {
+	var err error = nil
+
+	for {
+		str, err := DB_Make_UPSERT_Query(tbl_upsert)
+		if err != nil {
+			break
+		}
+
+		dbjob.queryList = append(dbjob.queryList, str)
+		break
+	}
+
+	dbjob.readyNextProcess(err)
+	return err
+}
+
+func (dbjob *DBJob) ADD_DELETE(tbl_where interface{}, raw_condition ...string) error {
+	var err error = nil
+
+	for {
+		str, err := DB_Make_DELETE_Query(tbl_where, raw_condition...)
+		if err != nil {
+			break
+		}
+
+		dbjob.queryList = append(dbjob.queryList, str)
+		break
+	}
+
+	dbjob.readyNextProcess(err)
+	return err
+}
+
+func (dbjob *DBJob) ADD_INCR(tbl_target interface{}, tbl_where interface{}, size int64, raw_condition ...string) error {
+	var err error = nil
+
+	for {
+		str, err := DB_Make_INCR_Query(tbl_target, tbl_where, size, raw_condition...)
+		if err != nil {
+			break
+		}
+
+		dbjob.queryList = append(dbjob.queryList, str)
+		break
+	}
+
+	dbjob.readyNextProcess(err)
+	return err
+}
+
+func (dbjob *DBJob) ADD_DECR(tbl_target interface{}, tbl_where interface{}, size int64, raw_condition ...string) error {
+	var err error = nil
+
+	for {
+		str, err := DB_Make_INCR_Query(tbl_target, tbl_where, -1*size, raw_condition...)
+		if err != nil {
+			break
+		}
+
+		dbjob.queryList = append(dbjob.queryList, str)
+		break
+	}
+
+	dbjob.readyNextProcess(err)
+	return err
+}
+
 func (dbjob *DBJob) Run(db *sql.DB) (int64, error) {
 	var err error = nil
 	if 0 != len(dbjob.errorMap) {
 		for k, v := range dbjob.errorMap {
-			fmt.Println("[ DBJob Error ] Run Failed - AddJob was failed. ::: No.", k, " - ", v)
+			logger.Errorf("[ DBJob Error ] Run Failed - AddJob was failed. ::: No.%v", k, " - %v", v)
 		}
 		return 0, errors.New("[ DBJob Error ] Run Failed.")
 	}
 
 	if 1 > len(dbjob.queryList) {
+		logger.Error("[ DBJob Error ] Run Failed. No Jobs")
 		return 0, errors.New("[ DBJob Error ] Run Failed. No Jobs")
 	}
 
@@ -1257,7 +1070,7 @@ func (dbjob *DBJob) Run(db *sql.DB) (int64, error) {
 	for i, query := range dbjob.queryList {
 		res, err = db.Exec(query)
 		if err != nil {
-			fmt.Println("[ DBJob ERROR ] Job index : ", i, " - ", err)
+			logger.Errorf("[ DBJob ERROR ] Job index : %v", i, " - %v", err)
 			if tx != nil {
 				tx.Rollback()
 			}
@@ -1265,7 +1078,7 @@ func (dbjob *DBJob) Run(db *sql.DB) (int64, error) {
 		}
 		affect, err := res.RowsAffected()
 		if err != nil {
-			fmt.Println("[ DBJob ERROR ] Job index : ", i, " - Rows Affected error - ", err)
+			logger.Errorf("[ DBJob ERROR ] Job index : %v ", i, " - Rows Affected error - %v ", err)
 		}
 		affCount += affect
 	}
@@ -1276,6 +1089,7 @@ func (dbjob *DBJob) Run(db *sql.DB) (int64, error) {
 
 	return affCount, err
 }
+
 
 func main() {
 
