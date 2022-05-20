@@ -221,7 +221,7 @@ func db_Make_SELECT_Query(tbl_columns interface{}, tbl_where interface{}, raw_co
 	}
 
 	queryStr := "SELECT " + strings.Join(target_column, ", ") + " FROM " + from_table + where_str + ";"
-	logger.Errorf(queryStr)
+	logger.Debug(queryStr)
 
 	return queryStr, nil
 }
@@ -292,7 +292,7 @@ func db_Make_INSERT_Query[DB_Table interface{}](tbl_insert ...DB_Table) (string,
 
 		// queryStr's final query form => INSERT INTO tbl (col1, col2, ...) VALUES (val1, val2, ...), ... ;
 		queryStr += (strings.Join(tbl_elem_array, ", ") + ";")
-		logger.Errorf(queryStr)
+		logger.Debug(queryStr)
 	}
 
 	return queryStr, nil
@@ -342,7 +342,7 @@ func db_Make_UPDATE_Query(tbl_columns interface{}, tbl_where interface{}, raw_co
 		queryStr += (where_str + ";")
 	}
 
-	logger.Errorf(queryStr)
+	logger.Debug(queryStr)
 	return queryStr, nil
 }
 
@@ -374,7 +374,7 @@ func db_Make_DELETE_Query(tbl_where interface{}, raw_condition ...string) (strin
 		queryStr += (where_str + ";")
 	}
 
-	logger.Errorf(queryStr)
+	logger.Debug(queryStr)
 	return queryStr, nil
 }
 
@@ -454,7 +454,7 @@ func db_Make_UPSERT_Query[DB_Table interface{}](tbl_insert DB_Table) (string, er
 		}
 
 		queryStr += (strings.Join(name_val_set_query_elems, ", ") + "; ")
-		logger.Errorf(queryStr)
+		logger.Debug(queryStr)
 	}
 
 	return queryStr, nil
@@ -513,7 +513,7 @@ func db_Make_INCR_Query(tbl_columns interface{}, tbl_where interface{}, size int
 		queryStr += (where_str + ";")
 	}
 
-	logger.Errorf(queryStr)
+	logger.Debug(queryStr)
 	return queryStr, nil
 }
 
