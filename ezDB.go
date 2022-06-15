@@ -956,7 +956,7 @@ func (dbjob *DBJob) readyNextProcess(err error) {
 	}
 }
 
-func (dbjob *DBJob) ADD_INSERT(tbl_insert ...interface{}) error {
+func ADD_INSERT[DB_Table interface{}](dbjob *DBJob, tbl_insert ...DB_Table) error {
 	var err error = nil
 
 	for {
@@ -990,7 +990,7 @@ func (dbjob *DBJob) ADD_INSERT(tbl_insert ...interface{}) error {
 	return err
 }
 
-func (dbjob *DBJob) ADD_UPDATE(tbl_target interface{}, tbl_where interface{}, raw_condition ...string) error {
+func ADD_UPDATE[DB_Table interface{}](dbjob *DBJob, tbl_target DB_Table, tbl_where DB_Table, raw_condition ...string) error {
 	var err error = nil
 
 	for {
@@ -1007,7 +1007,7 @@ func (dbjob *DBJob) ADD_UPDATE(tbl_target interface{}, tbl_where interface{}, ra
 	return err
 }
 
-func (dbjob *DBJob) ADD_UPSERT(tbl_upsert interface{}) error {
+func ADD_UPSERT[DB_Table interface{}](dbjob *DBJob, tbl_upsert DB_Table) error {
 	var err error = nil
 
 	for {
@@ -1024,7 +1024,7 @@ func (dbjob *DBJob) ADD_UPSERT(tbl_upsert interface{}) error {
 	return err
 }
 
-func (dbjob *DBJob) ADD_DELETE(tbl_where interface{}, raw_condition ...string) error {
+func ADD_DELETE[DB_Table interface{}](dbjob *DBJob, tbl_where DB_Table, raw_condition ...string) error {
 	var err error = nil
 
 	for {
@@ -1041,7 +1041,7 @@ func (dbjob *DBJob) ADD_DELETE(tbl_where interface{}, raw_condition ...string) e
 	return err
 }
 
-func (dbjob *DBJob) ADD_INCR(tbl_target interface{}, tbl_where interface{}, size int64, raw_condition ...string) error {
+func ADD_INCR[DB_Table interface{}](dbjob *DBJob, tbl_target DB_Table, tbl_where DB_Table, size int64, raw_condition ...string) error {
 	var err error = nil
 
 	for {
@@ -1058,7 +1058,7 @@ func (dbjob *DBJob) ADD_INCR(tbl_target interface{}, tbl_where interface{}, size
 	return err
 }
 
-func (dbjob *DBJob) ADD_DECR(tbl_target interface{}, tbl_where interface{}, size int64, raw_condition ...string) error {
+func ADD_DECR[DB_Table interface{}](dbjob *DBJob, tbl_target DB_Table, tbl_where DB_Table, size int64, raw_condition ...string) error {
 	var err error = nil
 
 	for {
@@ -1264,13 +1264,13 @@ func main() {
 	// 	tbl_insert.SnsID = "dbjob"
 	// 	tbl_insert.PlatformIdx = 99
 
-	// 	AddJob(&dbjob, SQL_INSERT, tbl_insert)
+	// 	Add_INSERT(&dbjob, tbl_insert)
 
 	// 	var tbl_where tblaccount
 	// 	DB_InitTable(&tbl_insert, &tbl_where)
 	// 	tbl_insert.UserUUID = 953
 	// 	tbl_where.PlayerKey = "dbjob_test"
-	// 	AddJob(&dbjob, SQL_UPDATE, tbl_insert, tbl_where)
+	// 	Add_UPDATE(&dbjob, tbl_insert, tbl_where)
 
 	// 	tbl_insert.PlayerKey = "dbjob_test"
 	// 	tbl_insert.UserUUID = 333
@@ -1280,7 +1280,7 @@ func main() {
 	// 	tbl_insert.GameDBID = 777
 	// 	tbl_insert.SnsID = "dbjob"
 	// 	tbl_insert.PlatformIdx = 97
-	// 	AddJob(&dbjob, SQL_UPSERT, tbl_insert)
+	// 	Add_UPSERT(&dbjob, tbl_insert)
 
 	// 	DB_InitTable(&tbl_insert)
 	// 	tbl_insert.PlatformIdx = 0
