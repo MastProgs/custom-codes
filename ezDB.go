@@ -207,7 +207,7 @@ func db_Make_SELECT_Query(tbl_columns interface{}, tbl_where interface{}, raw_co
 	var queryWhereElems []string
 	for i := 0; i < len(where_column); i++ {
 		queryWhere := ""
-		queryWhere += where_column[i]
+		queryWhere += "`" + where_column[i] + "`"
 		queryWhere += " = "
 		queryWhere += db_ToString(where_val[i])
 		queryWhereElems = append(queryWhereElems, queryWhere)
@@ -220,7 +220,7 @@ func db_Make_SELECT_Query(tbl_columns interface{}, tbl_where interface{}, raw_co
 		where_str += (" " + raw_condition[0])
 	}
 
-	queryStr := "SELECT " + strings.Join(target_column, ", ") + " FROM " + from_table + where_str + ";"
+	queryStr := "SELECT `" + strings.Join(target_column, "`, `") + "` FROM " + from_table + where_str + ";"
 	logger.Info(queryStr)
 
 	return queryStr, nil
@@ -263,8 +263,8 @@ func db_Make_INSERT_Query[DB_Table interface{}](tbl_insert ...DB_Table) (string,
 			Change extracted name to query string.
 			추출한 명칭을 쿼리 문자열로 변경.
 		*/
-		queryStr += (tbl_type.Name() + " (")
-		queryStr += (strings.Join(field_names, ", ") + ") VALUES ")
+		queryStr += (tbl_type.Name() + " (`")
+		queryStr += (strings.Join(field_names, "`, `") + "`) VALUES ")
 	}
 	{
 		/*
@@ -311,7 +311,7 @@ func db_Make_UPDATE_Query(tbl_columns interface{}, tbl_where interface{}, raw_co
 			reflect_v := tbl_val.Field(i)
 			reflect_t := tbl_type.Field(i).Name
 			if true == db_IsUse(reflect_v) {
-				set_field_cmd = append(set_field_cmd, reflect_t+"="+db_ToString(reflect_v))
+				set_field_cmd = append(set_field_cmd, "`"+reflect_t+"`="+db_ToString(reflect_v))
 			}
 		}
 
@@ -327,7 +327,7 @@ func db_Make_UPDATE_Query(tbl_columns interface{}, tbl_where interface{}, raw_co
 			reflect_v := tbl_val.Field(i)
 			reflect_t := tbl_type.Field(i).Name
 			if true == db_IsUse(reflect_v) {
-				set_field_cmd = append(set_field_cmd, reflect_t+"="+db_ToString(reflect_v))
+				set_field_cmd = append(set_field_cmd, "`"+reflect_t+"`="+db_ToString(reflect_v))
 			}
 		}
 
@@ -359,7 +359,7 @@ func db_Make_DELETE_Query(tbl_where interface{}, raw_condition ...string) (strin
 			reflect_v := tbl_val.Field(i)
 			reflect_t := tbl_type.Field(i).Name
 			if true == db_IsUse(reflect_v) {
-				set_field_cmd = append(set_field_cmd, reflect_t+"="+db_ToString(reflect_v))
+				set_field_cmd = append(set_field_cmd, "`"+reflect_t+"`="+db_ToString(reflect_v))
 			}
 		}
 
@@ -417,8 +417,8 @@ func db_Make_UPSERT_Query[DB_Table interface{}](tbl_insert DB_Table) (string, er
 			Change extracted name to query string.
 			추출한 명칭을 쿼리 문자열로 변경.
 		*/
-		queryStr += (tbl_type.Name() + " (")
-		queryStr += (strings.Join(field_names, ", ") + ") VALUES ")
+		queryStr += (tbl_type.Name() + " (`")
+		queryStr += (strings.Join(field_names, "`, `") + "`) VALUES ")
 	}
 	{
 		/*
@@ -450,7 +450,7 @@ func db_Make_UPSERT_Query[DB_Table interface{}](tbl_insert DB_Table) (string, er
 		*/
 		var name_val_set_query_elems []string
 		for _, i := range not_pk_col_index {
-			name_val_set_query_elems = append(name_val_set_query_elems, field_names[i]+"="+elem_row_value[i])
+			name_val_set_query_elems = append(name_val_set_query_elems, "`"+field_names[i]+"`="+elem_row_value[i])
 		}
 
 		queryStr += (strings.Join(name_val_set_query_elems, ", ") + "; ")
@@ -482,7 +482,7 @@ func db_Make_INCR_Query(tbl_columns interface{}, tbl_where interface{}, size int
 					operator = "-"
 					s = size * -1
 				}
-				set_field_cmd = append(set_field_cmd, reflect_t+"="+reflect_t+operator+strconv.FormatInt(s, 10))
+				set_field_cmd = append(set_field_cmd, "`"+reflect_t+"`="+reflect_t+operator+strconv.FormatInt(s, 10))
 			}
 		}
 
@@ -498,7 +498,7 @@ func db_Make_INCR_Query(tbl_columns interface{}, tbl_where interface{}, size int
 			reflect_v := tbl_val.Field(i)
 			reflect_t := tbl_type.Field(i).Name
 			if true == db_IsUse(reflect_v) {
-				set_field_cmd = append(set_field_cmd, reflect_t+"="+db_ToString(reflect_v))
+				set_field_cmd = append(set_field_cmd, "`"+reflect_t+"`="+db_ToString(reflect_v))
 			}
 		}
 
@@ -592,6 +592,7 @@ func DB_SELECT[DB_Table interface{}](db *sql.DB, tbl_target DB_Table, tbl_where 
 			결과 받을 테이블 주소 파라미터 셋팅.
 		*/
 		var obj DB_Table
+		DB_InitTable(&obj)
 		retT_val := reflect.ValueOf(&obj).Elem()
 		var target_ptr_list []interface{}
 		for _, d := range target_index {
@@ -878,6 +879,7 @@ func DB_INSERT_SELECT[DB_Table interface{}](db *sql.DB, tbl_insert DB_Table, tbl
 			결과 받을 테이블 주소 파라미터 셋팅.
 		*/
 		var obj DB_Table
+		DB_InitTable(&obj)
 		retT_val := reflect.ValueOf(&obj).Elem()
 		var target_ptr_list []interface{}
 		for _, d := range target_index {
@@ -956,7 +958,7 @@ func (dbjob *DBJob) readyNextProcess(err error) {
 	}
 }
 
-func ADD_INSERT[DB_Table interface{}](dbjob *DBJob, tbl_insert ...DB_Table) error {
+func ADD_INSERT[DB_TABLE interface{}](dbjob *DBJob, tbl_insert ...DB_TABLE) error {
 	var err error = nil
 
 	for {
@@ -990,7 +992,7 @@ func ADD_INSERT[DB_Table interface{}](dbjob *DBJob, tbl_insert ...DB_Table) erro
 	return err
 }
 
-func ADD_UPDATE[DB_Table interface{}](dbjob *DBJob, tbl_target DB_Table, tbl_where DB_Table, raw_condition ...string) error {
+func ADD_UPDATE[DB_TABLE interface{}](dbjob *DBJob, tbl_target DB_TABLE, tbl_where DB_TABLE, raw_condition ...string) error {
 	var err error = nil
 
 	for {
@@ -1007,7 +1009,7 @@ func ADD_UPDATE[DB_Table interface{}](dbjob *DBJob, tbl_target DB_Table, tbl_whe
 	return err
 }
 
-func ADD_UPSERT[DB_Table interface{}](dbjob *DBJob, tbl_upsert DB_Table) error {
+func ADD_UPSERT[DB_TABLE interface{}](dbjob *DBJob, tbl_upsert DB_TABLE) error {
 	var err error = nil
 
 	for {
@@ -1024,7 +1026,7 @@ func ADD_UPSERT[DB_Table interface{}](dbjob *DBJob, tbl_upsert DB_Table) error {
 	return err
 }
 
-func ADD_DELETE[DB_Table interface{}](dbjob *DBJob, tbl_where DB_Table, raw_condition ...string) error {
+func ADD_DELETE[DB_TABLE interface{}](dbjob *DBJob, tbl_where DB_TABLE, raw_condition ...string) error {
 	var err error = nil
 
 	for {
@@ -1041,7 +1043,7 @@ func ADD_DELETE[DB_Table interface{}](dbjob *DBJob, tbl_where DB_Table, raw_cond
 	return err
 }
 
-func ADD_INCR[DB_Table interface{}](dbjob *DBJob, tbl_target DB_Table, tbl_where DB_Table, size int64, raw_condition ...string) error {
+func ADD_INCR[DB_TABLE interface{}](dbjob *DBJob, tbl_target DB_TABLE, tbl_where DB_TABLE, size int64, raw_condition ...string) error {
 	var err error = nil
 
 	for {
@@ -1058,7 +1060,7 @@ func ADD_INCR[DB_Table interface{}](dbjob *DBJob, tbl_target DB_Table, tbl_where
 	return err
 }
 
-func ADD_DECR[DB_Table interface{}](dbjob *DBJob, tbl_target DB_Table, tbl_where DB_Table, size int64, raw_condition ...string) error {
+func ADD_DECR[DB_TABLE interface{}](dbjob *DBJob, tbl_target DB_TABLE, tbl_where DB_TABLE, size int64, raw_condition ...string) error {
 	var err error = nil
 
 	for {
@@ -1119,6 +1121,7 @@ func (dbjob *DBJob) Run(db *sql.DB) (int64, error) {
 
 	return affCount, err
 }
+
 
 
 func main() {
