@@ -388,7 +388,8 @@ func db_Make_UPSERT_Query[DB_Table interface{}](tbl_insert DB_Table) (string, er
 	*/
 	var valid_field_index []int
 
-	var not_pk_col_index []int
+	//var not_pk_col_index []int
+	not_pk_col_value := make(map[string]string, 0)
 	var field_names []string
 	var elem_row_value []string
 	{
@@ -408,7 +409,8 @@ func db_Make_UPSERT_Query[DB_Table interface{}](tbl_insert DB_Table) (string, er
 				valid_field_index = append(valid_field_index, i)
 				_, thisIsPK := t.Tag.Lookup("PK")
 				if false == thisIsPK {
-					not_pk_col_index = append(not_pk_col_index, i)
+					not_pk_col_value[t.Name] = ""
+					//not_pk_col_index = append(not_pk_col_index, i)
 				}
 			}
 		}
@@ -427,14 +429,19 @@ func db_Make_UPSERT_Query[DB_Table interface{}](tbl_insert DB_Table) (string, er
 		*/
 		var tbl_elem_array []string
 		tbl := reflect.ValueOf(&tbl_insert).Elem()
+		tbl_type := reflect.TypeOf(&tbl_insert).Elem()
 		field_size := tbl.NumField()
 
 		// elem_row_value == arr[ field1_value, field2_value, ... ]
 		for i := 0; i < field_size; i++ {
+			t := tbl_type.Field(i)
 			val := tbl.Field(i)
 
 			if true == db_IsUse(val) {
 				elem_row_value = append(elem_row_value, db_ToString(val))
+				if _, ok := not_pk_col_value[t.Name]; ok {
+					not_pk_col_value[t.Name] = db_ToString(val)
+				}
 			}
 		}
 
@@ -449,8 +456,8 @@ func db_Make_UPSERT_Query[DB_Table interface{}](tbl_insert DB_Table) (string, er
 			UPDATE 구문 추가
 		*/
 		var name_val_set_query_elems []string
-		for _, i := range not_pk_col_index {
-			name_val_set_query_elems = append(name_val_set_query_elems, "`"+field_names[i]+"`="+elem_row_value[i])
+		for key, val := range not_pk_col_value {
+			name_val_set_query_elems = append(name_val_set_query_elems, "`"+key+"`="+val)
 		}
 
 		queryStr += (strings.Join(name_val_set_query_elems, ", ") + "; ")
